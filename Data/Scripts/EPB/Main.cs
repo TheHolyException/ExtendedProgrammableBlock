@@ -1,4 +1,5 @@
-﻿using Sandbox.ModAPI;
+﻿using Extended_Programmable_Block;
+using Sandbox.ModAPI;
 using Sandbox.ModAPI.Interfaces.Terminal;
 using System;
 using System.Collections.Generic;
@@ -10,27 +11,36 @@ using VRage.Utils;
 
 namespace TestScript {
 
-	[MySessionComponentDescriptor(MyUpdateOrder.NoUpdate)]
-	public class Main : MySessionComponentBase {
+    [MySessionComponentDescriptor(MyUpdateOrder.NoUpdate)]
+    public class Main : MySessionComponentBase {
 
-        private Main Instance;
-        private Dictionary<long, String> pathString = new Dictionary<long, String>();
+        public static Main Instance;
+        public Dictionary<long, String> pathString = new Dictionary<long, String>();
+        private ServerCommunication serverCommunication;
 
-		public override void Init(MyObjectBuilder_SessionComponent sessionComponent) {
+        public override void Init(MyObjectBuilder_SessionComponent sessionComponent) {
             MyAPIGateway.TerminalControls.CustomControlGetter += CustomControlGetter;
             MyAPIGateway.TerminalControls.CustomActionGetter += CustomActionGetter;
-            MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Init\n\n\n\n\n\n");
+            serverCommunication = new ServerCommunication();
+            serverCommunication.onClientInit();
+            MyLog.Default.WriteLineAndConsole(
+                $"\n\n\n\n\n" +
+                $"\nEPB: Init" +
+                $"\n{(MyAPIGateway.Multiplayer != null ? "Multiplayer" : "Singleplayer")}" +
+                $"\n{(ServerCommunication.IsServer ? "Is Server" : "Is Not Server")}" +
+                $"\n{(ServerCommunication.IsClient ? "Is Client" : "Is Not Client")}" +
+                $"\n\n\n\n");
         }
 
         public override void LoadData() {
             Instance = this;
-            pathString = load();
+            if(ServerCommunication.IsClient) load(pathString);
         }
 
         public override void SaveData() {
             //Log.Info("SAVED");
             //save(pathString);
-		}
+        }
 
         public void CustomControlGetter(IMyTerminalBlock block, List<IMyTerminalControl> controls) {
             if (block is IMyProgrammableBlock) {
@@ -49,11 +59,15 @@ namespace TestScript {
                 };
                 path.Setter = (b, builder) => {
                     long id = ((IMyProgrammableBlock)b).EntityId;
-                    b.CustomData = id+"";
+                    b.CustomData = id + "";
                     if (pathString.ContainsKey(id)) pathString.Remove(id);
                     pathString.Add(id, builder.ToString());
 
-                    save(pathString);
+					if (ServerCommunication.IsClient) {
+                        save(pathString);
+                    } else {
+                        serverCommunication.onClientUpdateName(id, builder.ToString());
+                    }
                 };
                 controls.Add(path);
 
@@ -70,8 +84,8 @@ namespace TestScript {
                 loadButton.Action = onClickLoad;
                 controls.Add(loadButton);
 
-				
-				var saveButton = TerminalControls.CreateControl<IMyTerminalControlButton, IMyProgrammableBlock>("pbe_save");
+
+                var saveButton = TerminalControls.CreateControl<IMyTerminalControlButton, IMyProgrammableBlock>("pbe_save");
 
                 saveButton.Title = MyStringId.GetOrCompute("Save Data");
                 saveButton.Tooltip = MyStringId.GetOrCompute("Save");
@@ -84,8 +98,13 @@ namespace TestScript {
                 controls.Add(saveButton);
             }
         }
-		public void onClickSave(IMyTerminalBlock block) {
-			IMyProgrammableBlock programmableBlock = block as IMyProgrammableBlock;
+        public void onClickSave(IMyTerminalBlock block) {
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer) {
+                serverCommunication.onClientSave(block.EntityId);
+                return;
+            }
+
+            IMyProgrammableBlock programmableBlock = block as IMyProgrammableBlock;
             String path = "";
             if (!pathString.TryGetValue(programmableBlock.EntityId, out path)) {
                 MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Failed to Save, x01");
@@ -104,8 +123,13 @@ namespace TestScript {
             } catch (Exception ex) {
                 MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Save File: {ex.Message}\n\n\n\n\n\n");
             }
-		}
+        }
         public void onClickLoad(IMyTerminalBlock block) {
+            if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer) {
+                serverCommunication.onClientLoad(block.EntityId);
+                return;
+            }
+
             IMyProgrammableBlock programmableBlock = block as IMyProgrammableBlock;
             String path = "";
             if (!pathString.TryGetValue(programmableBlock.EntityId, out path)) {
@@ -114,21 +138,21 @@ namespace TestScript {
             }
             MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Loading " + path);
             BinaryReader r = null;
-			try {
-				r = MyAPIGateway.Utilities.ReadBinaryFileInWorldStorage(path, typeof(Main));
+            try {
+                r = MyAPIGateway.Utilities.ReadBinaryFileInWorldStorage(path, typeof(Main));
                 MyLog.Default.WriteLineAndConsole("EPB: rBS " + r.BaseStream.ToString());
-            } catch(Exception ex) {
+            } catch (Exception ex) {
                 MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Load File: {ex.Message}\n\n\n\n\n\n");
                 return;
-			}
+            }
             List<byte[]> chunks = new List<byte[]>();
-			int writePointer = 0;
+            int writePointer = 0;
             byte[] cache = new byte[4096];
             int l;
             while ((l = r.Read(cache, 0, cache.Length)) > 0) {
-				byte[] entry = new byte[l];
-				Array.Copy(cache, 0, entry, 0, l);
-				chunks.Add(entry);
+                byte[] entry = new byte[l];
+                Array.Copy(cache, 0, entry, 0, l);
+                chunks.Add(entry);
                 writePointer += l;
             }
             int pos = 0;
@@ -151,11 +175,11 @@ namespace TestScript {
             String ret = null;
             if (!pathString.TryGetValue(id, out ret)) return null;
             return ret;
-        } 
+        }
 
         #region PathData
-        public Dictionary<long, String> load() {
-            Dictionary<long, String> a = new Dictionary<long, String>();
+        public void load(Dictionary<long, String> a) {
+            a.Clear();
             try {
                 BinaryReader r = MyAPIGateway.Utilities.ReadBinaryFileInWorldStorage("settings.dat", typeof(Main));
                 int c = readInt(r);
@@ -168,7 +192,6 @@ namespace TestScript {
             } catch (Exception ex) {
                 //Log.Info("Failed to load settings.dat");
             }
-            return a;
         }
 
         public void save(Dictionary<long, String> map) {
