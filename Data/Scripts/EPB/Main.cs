@@ -121,15 +121,34 @@ namespace TestScript {
             //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Saving " + path);
             try {
                 BinaryWriter w = MyAPIGateway.Utilities.WriteBinaryFileInWorldStorage(path, typeof(Main));
-                char[] raw = programmableBlock.StorageData.ToCharArray();
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S1");
+                char[] raw = programmableBlock.StorageData.ToCharArray(); // <-- da is null WTFFFFFFFFF jo kagge gel   was mach ma jetzt? hör ma auf? geh ma heim? hab kp... - wird die klasse eig. einmal oder pro spieler inizialisiert? gibts da iwasauffäliges?
+                                                                          // ich denk mal ingesammt 3 mal 1 mal der server und wir beide jeweils
+                                                                          //wär nen problem... - egal ich mein explizit alle instanzen des servers; das wir clients auch welche haben ist ja klar...
+                                                                          //wird nur 1 mal instatziert schau
+                                                                          // des andere ist vor c.a ner stunde also igno das aber es wird nur 1 mal instanziert
+                                                                          //habs gesehen........mir gehen die ideen aus
+                                                                          //ist dein komischer dude mal fertig?
+                                                                          //ne der müht sich gerade daran ab, icons auszutauschen.
+                                                                          
+                
+                                                                          //Es kann aber nur StorageData null sein...
+                                                                          //
+
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S2");
                 byte[] bin = new byte[raw.Length];
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S3");
                 for (int i = 0; i < raw.Length; i++) bin[i] = (byte)(raw[i] & 0xFF);
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S4");
                 //MyLog.Default.WriteLineAndConsole("EPB: wBS " + w.BaseStream.ToString());
                 w.Write(bin, 0, bin.Length);
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S5");
                 w.Flush();
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S6");
                 w.Close();
+                MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: S7");
             } catch (Exception ex) {
-                MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Save File: {ex.Message}\n\n\n\n\n\n");
+                MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Save File: {ex.Message} -->> {ex.StackTrace}\n\n\n\n\n\n");
             }
         }
         public void onClickLoad(IMyTerminalBlock block) {
@@ -167,7 +186,7 @@ namespace TestScript {
             char[] b = new char[writePointer];
             foreach (byte[] entry in chunks) {
                 for (int i = 0; i < entry.Length; i++) b[i + pos] = (char)(entry[i] & 0xFF);
-                pos += cache.Length;
+                pos += entry.Length;
             }
             programmableBlock.StorageData = new String(b);
         }
