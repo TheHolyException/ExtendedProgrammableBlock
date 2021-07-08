@@ -19,25 +19,33 @@ namespace TestScript {
         private ServerCommunication serverCommunication;
 
         public override void Init(MyObjectBuilder_SessionComponent sessionComponent) {
+            //MyLog.Default.WriteLineAndConsole("Main.Init()");
             MyAPIGateway.TerminalControls.CustomControlGetter += CustomControlGetter;
             MyAPIGateway.TerminalControls.CustomActionGetter += CustomActionGetter;
             serverCommunication = new ServerCommunication();
-            serverCommunication.onClientInit();
+            if (ServerCommunication.IsClient) serverCommunication.onClientInit();
             MyLog.Default.WriteLineAndConsole(
-                $"\n\n\n\n\n" +
+                $"\n" +
                 $"\nEPB: Init" +
                 $"\n{(MyAPIGateway.Multiplayer != null ? "Multiplayer" : "Singleplayer")}" +
                 $"\n{(ServerCommunication.IsServer ? "Is Server" : "Is Not Server")}" +
                 $"\n{(ServerCommunication.IsClient ? "Is Client" : "Is Not Client")}" +
-                $"\n\n\n\n");
+                $"\n");
         }
 
         public override void LoadData() {
+            //MyLog.Default.WriteLineAndConsole("Main.LoadData()");
             Instance = this;
             if(ServerCommunication.IsClient) load(pathString);
         }
 
-        public override void SaveData() {
+		protected override void UnloadData() {
+            //MyLog.Default.WriteLineAndConsole("Main.UnloadData()");
+            serverCommunication.Unload();
+
+        }
+
+		public override void SaveData() {
             //Log.Info("SAVED");
             //save(pathString);
         }
@@ -63,7 +71,7 @@ namespace TestScript {
                     if (pathString.ContainsKey(id)) pathString.Remove(id);
                     pathString.Add(id, builder.ToString());
 
-					if (ServerCommunication.IsClient) {
+					if (ServerCommunication.IsClient && ServerCommunication.IsServer) {
                         save(pathString);
                     } else {
                         serverCommunication.onClientUpdateName(id, builder.ToString());
@@ -110,13 +118,13 @@ namespace TestScript {
                 MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Failed to Save, x01");
                 return;
             }
-            MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Saving " + path);
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Saving " + path);
             try {
                 BinaryWriter w = MyAPIGateway.Utilities.WriteBinaryFileInWorldStorage(path, typeof(Main));
                 char[] raw = programmableBlock.StorageData.ToCharArray();
                 byte[] bin = new byte[raw.Length];
                 for (int i = 0; i < raw.Length; i++) bin[i] = (byte)(raw[i] & 0xFF);
-                MyLog.Default.WriteLineAndConsole("EPB: wBS " + w.BaseStream.ToString());
+                //MyLog.Default.WriteLineAndConsole("EPB: wBS " + w.BaseStream.ToString());
                 w.Write(bin, 0, bin.Length);
                 w.Flush();
                 w.Close();
@@ -136,11 +144,11 @@ namespace TestScript {
                 MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Failed to Load, x11");
                 return;
             }
-            MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Loading " + path);
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Loading " + path);
             BinaryReader r = null;
             try {
                 r = MyAPIGateway.Utilities.ReadBinaryFileInWorldStorage(path, typeof(Main));
-                MyLog.Default.WriteLineAndConsole("EPB: rBS " + r.BaseStream.ToString());
+                //MyLog.Default.WriteLineAndConsole("EPB: rBS " + r.BaseStream.ToString());
             } catch (Exception ex) {
                 MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Load File: {ex.Message}\n\n\n\n\n\n");
                 return;

@@ -17,7 +17,9 @@ namespace Extended_Programmable_Block {
         
         public ServerCommunication() {
             isReady = false;
-        }
+			Initialize();
+
+		}
 		//data.SteamId = MyAPIGateway.Session.Player.SteamUserId;
 		public static bool IsServer {
 			get {
@@ -78,8 +80,8 @@ namespace Extended_Programmable_Block {
 			try {
 				MyAPIGateway.Multiplayer.SendMessageToServer(toServerPort, data);
             } catch (Exception ex) {
-                MyLog.Default.WriteLine(string.Format("clientSendPacket() Error: {0}", ex.ToString()));
-            }
+				//MyLog.Default.WriteLine(string.Format("clientSendPacket() Error: {0}", ex.ToString()));
+			}
 		}
 		
 		public void serverSendPacket(byte[] data) {
@@ -91,8 +93,8 @@ namespace Extended_Programmable_Block {
 					MyAPIGateway.Multiplayer.SendMessageTo(toClientPort, data, player.SteamUserId);
 				}
             } catch (Exception ex) {
-                MyLog.Default.WriteLine(string.Format("serverSendPacket() Error: {0}", ex.ToString()));
-            }
+				//MyLog.Default.WriteLine(string.Format("serverSendPacket() Error: {0}", ex.ToString()));
+			}
 		}
 		
         //s -> c: [Dict names, Dict filename update]
@@ -136,51 +138,63 @@ namespace Extended_Programmable_Block {
 			w.write(1);
 			clientSendPacket(w.toByteArray());
 		}
-		public void onClientUpdateName(long id, String newName){
+		public void onClientUpdateName(long id, String newName) {
+			//MyLog.Default.WriteLineAndConsole("onClientUpdateName():id="+id+", name="+ newName);
 			BufferedWriter w = new BufferedWriter();
 			w.write(2);
 			w.writeString(id.ToString(), false);
 			w.writeString(newName, false);
 			clientSendPacket(w.toByteArray());
+			//MyLog.Default.WriteLineAndConsole("onClientUpdateName():end");
 		}
 		public void onClientSave(long id){
+			//MyLog.Default.WriteLineAndConsole("onClientSave()");
 			BufferedWriter w = new BufferedWriter();
 			w.write(3);
 			w.writeString(id.ToString(), false);
 			clientSendPacket(w.toByteArray());
+			//MyLog.Default.WriteLineAndConsole("onClientSave():end");
 		}
-		public void onClientLoad(long id){
+		public void onClientLoad(long id) {
+			//MyLog.Default.WriteLineAndConsole("onClientLoad()");
 			BufferedWriter w = new BufferedWriter();
 			w.write(4);
 			w.writeString(id.ToString(), false);
 			clientSendPacket(w.toByteArray());
+			//MyLog.Default.WriteLineAndConsole("onClientLoad():end");
 		}
 
-		private void onServerSave(Dictionary<long, String> map, BufferedReader r){
+		private void onServerSave(Dictionary<long, String> map, BufferedReader r) {
+			//MyLog.Default.WriteLineAndConsole("onServerSave()");
 			long blockId = long.Parse(r.readString(false));
 			String fileName = map[blockId];
-			//TODO:
+			//MyLog.Default.WriteLineAndConsole($"onServerSave(): {blockId} - {fileName}");
 			Main.Instance.onClickSave(getBlockById(blockId));
+			//MyLog.Default.WriteLineAndConsole("onServerSave():end");
 		}
-		private void onServerLoad(Dictionary<long, String> map, BufferedReader r){
+		private void onServerLoad(Dictionary<long, String> map, BufferedReader r) {
+			//MyLog.Default.WriteLineAndConsole("onServerLoad()");
 			long blockId = long.Parse(r.readString(false));
 			String fileName = map[blockId];
-			//TODO:
 			Main.Instance.onClickLoad(getBlockById(blockId));
+			//MyLog.Default.WriteLineAndConsole("onServerLoad():end");
 		}
 		//------------------ </interface> ------------------
 		private void onClientReceiveDict(Dictionary<long, String> map, BufferedReader r) {
 			readDict(map, r);
 		}
 		private void onClientUpdateDictEntry(Dictionary<long, String> map, BufferedReader r) {
+			//MyLog.Default.WriteLineAndConsole("onClientUpdateDictEntry()");
 			String idStr = r.readString(false);
 			String name = r.readString(false);
+			//MyLog.Default.WriteLineAndConsole("onClientUpdateDictEntry():id=" + idStr + ", name=" + name);
 			long id = long.Parse(idStr);
 			if(map.ContainsKey(id)) map.Remove(id);
 			map.Add(id, name);
 			Main.Instance.save(map);
+			//MyLog.Default.WriteLineAndConsole("onClientUpdateDictEntry():end");
 		}
-		
+
 
 		private void onServerSendDict(Dictionary<long, String> map){
 			BufferedWriter w = new BufferedWriter();
@@ -188,9 +202,11 @@ namespace Extended_Programmable_Block {
 			writeDict(map, w);
 			serverSendPacket(w.toByteArray());
 		}
-		private void onServerUpdateDictEntry(Dictionary<long, String> map, BufferedReader r){
+		private void onServerUpdateDictEntry(Dictionary<long, String> map, BufferedReader r) {
+			//MyLog.Default.WriteLineAndConsole("onServerUpdateDictEntry()");
 			String idStr = r.readString(false);
 			String name = r.readString(false);
+			//MyLog.Default.WriteLineAndConsole("onServerUpdateDictEntry():id=" + idStr + ", name=" + name);
 			long id = long.Parse(idStr);
 			if(map.ContainsKey(id)) map.Remove(id);
 			map.Add(id, name);
@@ -200,8 +216,9 @@ namespace Extended_Programmable_Block {
 			w.writeString(idStr, false);
 			w.writeString(name, false);
 			serverSendPacket(w.toByteArray());
+			//MyLog.Default.WriteLineAndConsole("onServerUpdateDictEntry():end");
 		}
-		
+
 		public void readDict(Dictionary<long, String> map, BufferedReader r) {
 			Dictionary<long, String> a = new Dictionary<long, String>();
             try {
@@ -261,10 +278,11 @@ namespace Extended_Programmable_Block {
 				(byte)((i >> 16) & 0xFF),
 				(byte)((i >> 8) & 0xFF),
 				(byte)((i) & 0xFF)
-			});
+			}, 0, 4);
 		}
 		public void writeString(String s, bool fullChar) {
 			char[] str = s.ToCharArray();
+			//MyLog.Default.WriteLineAndConsole("writeString():len="+str.Length);
 			writeInt(str.Length);
 			if (fullChar) {
 				byte[] a = new byte[str.Length*2];
@@ -280,14 +298,15 @@ namespace Extended_Programmable_Block {
 				}
 				write(a);
 			}
+			//MyLog.Default.WriteLineAndConsole("writeString():end");
 		}
-		
+
 		public byte[] toByteArray(){
 			byte[] b = new byte[writePointer];
 			int pos = 0;
 			foreach (byte[] entry in data) {
 				Array.Copy(entry, 0, b, pos, entry.Length);
-				pos += data.Count;
+				pos += entry.Length;
 			}
 			return b;
 		}
@@ -328,6 +347,7 @@ namespace Extended_Programmable_Block {
 		
 		 public String readString(bool fullChar) {
 			int c = readInt();
+			//MyLog.Default.WriteLineAndConsole("writeString():len=" + c);
 			char[] a = new char[c];
 			char chr;
 			for (int i = 0; i < c; i++) {
@@ -336,6 +356,7 @@ namespace Extended_Programmable_Block {
 				chr |= (char)read();
 				a[i] = chr;
 			}
+			//MyLog.Default.WriteLineAndConsole("writeString():out=" + new String(a));
 			return new String(a);
 		}
 	}
