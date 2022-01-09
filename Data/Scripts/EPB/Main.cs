@@ -85,10 +85,7 @@ namespace TestScript {
                 loadButton.Title = MyStringId.GetOrCompute("Load Data");
                 loadButton.Tooltip = MyStringId.GetOrCompute("Load Some Data");
                 loadButton.Visible = (g) => true;
-                loadButton.Enabled = (g) => true; /*{
-                    String PBPath = getProgrammableBlockPath(g);
-                    return PBPath != null && PBPath.Length > 0;
-                };*/
+                loadButton.Enabled = (g) => true;
                 loadButton.Action = onClickLoad;
                 controls.Add(loadButton);
 
@@ -112,13 +109,22 @@ namespace TestScript {
                 return;
             }
 
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: saving");
             IMyProgrammableBlock programmableBlock = block as IMyProgrammableBlock;
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Storagedata: " + (programmableBlock.StorageData == null ? "null" : "not null"));
             String path = "";
             if (!pathString.TryGetValue(programmableBlock.EntityId, out path)) {
                 MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Failed to Save, x01");
                 return;
-            }
-            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Saving " + path);
+            }           
+
+            // Fix because StorageData is null on failed PB
+            bool stateBevore = programmableBlock.Enabled;
+            if (stateBevore) programmableBlock.Enabled = false;
+            programmableBlock.Recompile();
+
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: Storagedata_1: " + (programmableBlock.StorageData == null ? "null" : "not null"));
+
             try {
                 BinaryWriter w = MyAPIGateway.Utilities.WriteBinaryFileInWorldStorage(path, typeof(Main));
                 char[] raw = programmableBlock.StorageData.ToCharArray();
@@ -131,12 +137,16 @@ namespace TestScript {
             } catch (Exception ex) {
                 MyLog.Default.WriteLineAndConsole($"\n\n\n\n\n\nEPB: Exception Save File: {ex.Message} -->> {ex.StackTrace}\n\n\n\n\n\n");
             }
+
+            programmableBlock.Enabled = stateBevore;
         }
         public void onClickLoad(IMyTerminalBlock block) {
             if (MyAPIGateway.Multiplayer != null && !MyAPIGateway.Multiplayer.IsServer) {
                 serverCommunication.onClientLoad(block.EntityId);
                 return;
             }
+
+            //MyLog.Default.WriteLineAndConsole("EPB[DEBUG]: loading");
 
             IMyProgrammableBlock programmableBlock = block as IMyProgrammableBlock;
             String path = "";
@@ -169,6 +179,13 @@ namespace TestScript {
                 for (int i = 0; i < entry.Length; i++) b[i + pos] = (char)(entry[i] & 0xFF);
                 pos += entry.Length;
             }
+
+            // Fix because StorageData is null on failed PB
+            bool stateBevore = programmableBlock.Enabled;
+            if (stateBevore) programmableBlock.Enabled = false;
+            programmableBlock.Recompile();
+            programmableBlock.Enabled = stateBevore;
+
             programmableBlock.StorageData = new String(b);
         }
         public void CustomActionGetter(IMyTerminalBlock block, List<IMyTerminalAction> actions) {
